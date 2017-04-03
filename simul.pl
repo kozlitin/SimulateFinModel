@@ -56,6 +56,8 @@ foreach my $row (2 .. $SheetWithVariables->Cells->SpecialCells(11)->{Row}) {
 	
 	next unless $Version =~ /\d+/;
 
+	#last if ($Version>1);
+	
 	$Variables{$Version} = {
 		DC1RackPriceDec => $SheetWithVariables->Cells($row,6)->{Value},
 		DC1NewSalesPrice => $SheetWithVariables->Cells($row,7)->{Value},
@@ -73,7 +75,9 @@ foreach my $key (sort {$a <=> $b} (keys %Variables)) {
 	print $key, "\t", join ("\t",@{[%{$Variables{$key}}]}), "\n";
 }	
 	
-$SheetWithDataStat->Range("A2:J50000")->ClearContents();
+my $NumberOfRowsInDataStatSheet = $SheetWithDataStat->Cells->SpecialCells(11)->{Row};
+	
+$SheetWithDataStat->Range("A2:J$NumberOfRowsInDataStatSheet")->ClearContents();
 	
 my $DataStatBlockOffset = 0;	
 	
@@ -90,22 +94,29 @@ foreach my $key (sort {$a <=> $b} (keys %Variables)) {
 	$SheetWithSummary->Cells(8,3)->{Value} = $Variables{$key}->{SalaryInc};
 	$SheetWithSummary->Cells(9,3)->{Value} = $Variables{$key}->{MarketingInc};
 	
-	$SheetDetailed->Calculate();
-	$SheetWithData->Calculate();
+	for (my $i=1; $i <= $ExcelBookOle->Sheets->{Count}; $i++ ) {
+		$ExcelBookOle->Worksheets($i)->Calculate();
+	}	
+	
+	$ExcelBookOle->RefreshAll();
 	
 	for (my $sr=2; $sr<=39; $sr++) {
 		$SheetWithDataStat->Cells($sr+$DataStatBlockOffset*38, 1)->{Value} = $key;
 		for (my $sc=1; $sc<=9; $sc++) {
-			$SheetWithDataStat->Cells($sr+$DataStatBlockOffset*38, $sc+1)->{Value} = $SheetWithData->Cells($sr,$sc)->{Value};	
+			$SheetWithDataStat->Cells($sr+$DataStatBlockOffset*38, $sc+1)->{Value} = $SheetWithData->Cells($sr,$sc)->{Value};
+			#print "$sr,$sc: " . $SheetWithData->Cells($sr,$sc)->{Value} . "\n";
+			#if ($sc>3) {
+			#	$SheetWithDataStat->Cells($sr+$DataStatBlockOffset*38, $sc+1)->{NumberFormat} = "0";
+			#}
 		}	
 	}
 	
 	$DataStatBlockOffset++;
 }		
 	
-$ExcelBookOle->save();
+$ExcelBookOle->Close(1);
 
-print "Workbook was saved.\n";	
+print "Workbook was saved and closed.\n";	
 	
 $ExcelOle->Quit();
 $ExcelOle = undef;	
